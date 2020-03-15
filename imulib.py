@@ -39,13 +39,13 @@ def C_321(ang):
     return C
 
 # IMU propogation ODE model
-def ode(x,IMUacc_NED_mes,IMUw_NED_mes):
+def ode(x,IMUacc_mes,IMUw_mes):
     # Extract states (ang;pos;vel)
     IMUang_NED = x[0:3]
     IMUvel_relNED_NED = x[6:9]
     # Extract measurements
-    IMUw_relNED_IMU = IMUw_NED_mes
-    IMUacc_relNED_IMU = IMUacc_NED_mes
+    IMUw_relNED_IMU = IMUw_mes
+    IMUacc_relNED_IMU = IMUacc_mes
     # Rotational kinematics
     S_inv = np.array([[1, np.sin(IMUang_NED[0])*np.tan(IMUang_NED[1]), np.cos(IMUang_NED[0])*np.tan(IMUang_NED[1])],
                       [0, np.cos(IMUang_NED[0]),                      -np.sin(IMUang_NED[0])],
@@ -106,5 +106,3 @@ def gen_meas_circle(t_ini, t_step, t_fin, r, SNR):
         IMUacc_NED_mes[2,i] = IMUacc_NED[2,i] + gauss(acc_mean,acc_std) #+ grav_acc
     x_ini = np.concatenate((IMUw_NED_mes[0:3,0],IMUpos_NED[0:3,0],IMUvel_NED[0:3,0]),axis=0)
     return time, IMUacc_NED_mes, IMUw_NED_mes, x_ini
-
-
