@@ -7,6 +7,7 @@ Created on Sat Mar 14 13:32:49 2020
 
 import numpy as np    
 from random import gauss
+import pdb
 
 
 # Frame conversion (3,2,1 Euler Angles)
@@ -56,6 +57,7 @@ def ode(x,IMUacc_mes,IMUw_mes):
     C_IMU_NED = C_321(IMUang_NED)
     C_NED_IMU = np.transpose(C_IMU_NED)
     IMUvel_relNED_NED_dot = np.dot(C_NED_IMU,IMUacc_relNED_IMU)
+    IMUvel_relNED_NED_dot[2] = IMUvel_relNED_NED_dot[2] - 9.81
     
     #pdb.set_trace()
     x_dot = np.concatenate((IMUang_NED_dot,IMUpos_relNED_NED_dot,IMUvel_relNED_NED_dot),axis=0)
@@ -86,12 +88,13 @@ def gen_meas_circle(t_ini, t_step, t_fin, r, SNR):
     # State space model
     acc_mean = 0
     acc_std = 1/np.sqrt(SNR)*r/(tau**2)/2
-    #grav_acc = 9.81
+    grav_acc = 9.81
     IMUpos_NED = np.zeros((3, t_len))
     IMUvel_NED = np.zeros((3, t_len))
     IMUacc_NED = np.zeros((3, t_len))
-    IMUacc_NED_mes = np.zeros((3, t_len))
-    IMUw_NED_mes = np.zeros((3, t_len))
+    IMUacc_mes = np.zeros((3, t_len))
+    IMUang_NED = np.zeros((3, t_len))
+    IMUw_mes = np.zeros((3, t_len))
     for i in range(0, t_len):
         # True states
         IMUpos_NED[0,i] = r*np.cos(time[i]/tau)
@@ -101,8 +104,42 @@ def gen_meas_circle(t_ini, t_step, t_fin, r, SNR):
         IMUacc_NED[0,i] = -r/(tau**2)*np.cos(time[i]/tau)
         IMUacc_NED[1,i] = -r/(tau**2)*np.sin(time[i]/tau)    
         # Measurements
-        IMUacc_NED_mes[0,i] = IMUacc_NED[0,i] + gauss(acc_mean,acc_std)
-        IMUacc_NED_mes[1,i] = IMUacc_NED[1,i] + gauss(acc_mean,acc_std)
-        IMUacc_NED_mes[2,i] = IMUacc_NED[2,i] + gauss(acc_mean,acc_std) #+ grav_acc
-    x_ini = np.concatenate((IMUw_NED_mes[0:3,0],IMUpos_NED[0:3,0],IMUvel_NED[0:3,0]),axis=0)
-    return time, IMUacc_NED_mes, IMUw_NED_mes, x_ini
+        C_IMU_NED = C_321(np.zeros((3,1)))
+        IMUacc_mes[0:3,i] = np.dot(C_IMU_NED,IMUacc_NED[0:3,i])
+        IMUacc_mes[0,i] = IMUacc_mes[0,i] + gauss(acc_mean,acc_std)
+        IMUacc_mes[1,i] = IMUacc_mes[1,i] + gauss(acc_mean,acc_std)
+        IMUacc_mes[2,i] = IMUacc_mes[2,i] + gauss(acc_mean,acc_std) + grav_acc
+        IMUw_mes[0,i] = gauss(acc_mean,acc_std)/10
+        IMUw_mes[1,i] = gauss(acc_mean,acc_std)/10
+        IMUw_mes[2,i] = gauss(acc_mean,acc_std)/10
+
+    x_ini = np.concatenate((IMUang_NED[0:3,0],IMUpos_NED[0:3,0],IMUvel_NED[0:3,0]),axis=0)
+    return time, IMUacc_mes, IMUw_mes, x_ini
+
+def read_meas_data(data):
+    freq = 200
+    t_len = len(data)
+    t_ini = 0
+    t_fin = (t_len-1)/freq
+    time = np.linspace(t_ini,t_fin,t_len)
+    acc_meas = np.zeros((3, t_len))
+    #acc_ngrav_meas = np.zeros((3,t_len))
+    gyr_meas = np.zeros((3, t_len))
+    #qua_meas = np.zeros((4,t_len))
+    #mag_meas = np.zeros((3,t_len))
+    #eul_meas = np.zeros((3,t_len))
+    temp = np.zeros((3,1))
+    for i in range(0,t_len-1):
+        #acc_true_meas = data[i][0]
+        acc_meas[0][i] = data[i][1][0]
+        acc_meas[1][i] = data[i][1][1]
+        acc_meas[2][i] = data[i][1][2]
+        gyr_meas[0][i] = data[i][2][0]
+        gyr_meas[1][i] = data[i][2][1]
+        gyr_meas[2][i] = data[i][2][2]
+        #qua_meas = data[i][3]
+        #mag_meas = data[i][4]
+        #eul_meas = data[i][5]
+    x_ini = np.concatenate((temp[0:3,0],temp[0:3,0],temp[0:3,0]),axis=0)
+    return time, acc_meas, gyr_meas, x_ini
+
